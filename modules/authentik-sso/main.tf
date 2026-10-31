@@ -110,8 +110,15 @@ resource "authentik_provider_oauth2" "app" {
   )
 }
 
+# What the OpenBao copy says besides the secret; a change to it must rewrite that copy.
+resource "terraform_data" "oidc_identity" {
+  for_each = local.oidc
+  input    = { client_id = each.key, issuer = "https://${var.authentik_host}.${var.domain}/application/o/${each.key}/" }
+}
+
 # The client secret for the app's ExternalSecret. Write-only, so it isn't stored a second time in
-# the state (the provider above keeps its copy there).
+# the state (the provider above keeps its copy there), and Tofu can't see it drift: it is rewritten
+# when the secret or the identity changes, or when var.secret_version is bumped.
 resource "vault_kv_secret_v2" "oidc" {
   for_each = local.oidc
 
@@ -123,6 +130,10 @@ resource "vault_kv_secret_v2" "oidc" {
     issuer       = "https://${var.authentik_host}.${var.domain}/application/o/${each.key}/"
   })
   data_json_wo_version = var.secret_version
+
+  lifecycle {
+    replace_triggered_by = [random_password.oidc[each.key], terraform_data.oidc_identity[each.key]]
+  }
 }
 
 # --- Proxy apps -------------------------------------------------------------------------------------
@@ -136,15 +147,6 @@ resource "authentik_provider_proxy" "app" {
   internal_host      = each.value.internal_host
   authorization_flow = data.authentik_flow.authorization.id
   invalidation_flow  = data.authentik_flow.invalidation.id
-}
-
-# Authentik creates its embedded outpost itself, so the calling root must adopt it with an import
-# block (see README). Only protocol_providers is managed: config is optional and computed, so
-# Authentik's own outpost settings stay as they are.
-resource "authentik_outpost" "embedded" {
-  name               = "authentik Embedded Outpost"
-  type               = "proxy"
-  protocol_providers = [for k in sort(keys(local.proxy)) : authentik_provider_proxy.app[k].id]
 }
 
 # --- Applications and their login gates -------------------------------------------------------------

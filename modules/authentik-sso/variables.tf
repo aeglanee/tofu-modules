@@ -43,6 +43,15 @@ variable "clients" {
     condition     = alltrue([for c in var.clients : c.mode != "proxy" || c.internal_host != null])
     error_message = "A proxy client needs internal_host."
   }
+  validation {
+    condition     = alltrue([for c in var.clients : length(distinct(c.groups)) == length(c.groups)])
+    error_message = "A client lists a group twice."
+  }
+  # The module makes these two itself, and the admin group inherits every client group.
+  validation {
+    condition     = !anytrue([for c in var.clients : contains(c.groups, var.superuser_group) || contains(c.groups, var.admin_group)])
+    error_message = "A client lists the superuser or admin group; give it an app group instead."
+  }
 }
 
 variable "superuser_group" {

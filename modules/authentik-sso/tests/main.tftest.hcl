@@ -84,8 +84,8 @@ run "clients" {
     error_message = "a secret per oidc client at apps/<client>/oidc, none for proxies"
   }
   assert {
-    condition     = length(authentik_outpost.embedded.protocol_providers) == 1
-    error_message = "the embedded outpost serves exactly the proxy clients"
+    condition     = length(output.proxy_provider_ids) == 1
+    error_message = "one provider id per proxy client, for the embedded outpost"
   }
   assert {
     condition     = length(authentik_group.admin.parents) == 5 && authentik_group.admin.users == tolist([7])
@@ -119,4 +119,31 @@ run "mode_is_oidc_or_proxy" {
     clients = { x = { mode = "saml", redirect_path = "/" } }
   }
   expect_failures = [var.clients]
+}
+
+run "group_listed_twice" {
+  command = plan
+  variables {
+    clients = { x = { redirect_path = "/", groups = ["a", "a"] } }
+  }
+  expect_failures = [var.clients]
+}
+
+run "client_cant_list_the_admin_group" {
+  command = plan
+  variables {
+    clients = { x = { redirect_path = "/", groups = ["full-admin"] } }
+  }
+  expect_failures = [var.clients]
+}
+
+run "secret_rewritten_with_its_identity" {
+  command = apply
+  variables {
+    authentik_host = "sso"
+  }
+  assert {
+    condition     = terraform_data.oidc_identity["grafana"].input.issuer == "https://sso.example.com/application/o/grafana/"
+    error_message = "the OpenBao copy follows the issuer"
+  }
 }

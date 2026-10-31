@@ -6,7 +6,7 @@ terraform {
     # The provider's version follows Authentik's; keep it on the server's minor.
     authentik = {
       source  = "goauthentik/authentik"
-      version = "~> 2026.8"
+      version = "~> 2026.8.0"
     }
     vault = {
       source  = "hashicorp/vault"
