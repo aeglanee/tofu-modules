@@ -1,0 +1,5 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+# Modules don't pin providers; the calling root's lock file does.
+.terraform.lock.hcl
