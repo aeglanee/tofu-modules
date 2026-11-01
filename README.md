@@ -7,6 +7,7 @@ cluster's inputs.
 | Module | Does |
 |---|---|
 | [authentik-sso](modules/authentik-sso/) | Every SSO client in Authentik (OIDC and proxy), their groups and login gates, and the client secrets in OpenBao |
+| [harbor](modules/harbor/) | Harbor's proxy caches: a registry endpoint and a public `<key>-proxy` project per upstream registry, and the `helm-charts` push target |
 
 ## Using a module
 
