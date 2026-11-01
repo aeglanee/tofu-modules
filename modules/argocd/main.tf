@@ -10,12 +10,12 @@ resource "argocd_account_token" "readonly" {
   renew_after = "8760h" # 1y; long-lived by design (no expires_in)
 }
 
-# Same path shape as the OIDC client secrets (apps/<app>/oidc).
+# The default has the same path shape as the OIDC client secrets (apps/<app>/oidc).
 resource "vault_kv_secret_v2" "token" {
   for_each = var.readonly_accounts
 
   mount = var.kv_mount
-  name  = "apps/${each.key}/argocd"
+  name  = coalesce(each.value.kv_path, "apps/${each.key}/argocd")
   data_json = jsonencode({
     token = argocd_account_token.readonly[each.key].jwt
   })

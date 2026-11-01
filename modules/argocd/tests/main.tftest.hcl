@@ -8,7 +8,10 @@ mock_provider "argocd" {
 mock_provider "vault" {}
 
 variables {
-  readonly_accounts = ["homepage", "radar"]
+  readonly_accounts = {
+    homepage = {}
+    radar    = { kv_path = "apps/radar/argocd-token" }
+  }
 }
 
 run "tokens" {
@@ -19,11 +22,22 @@ run "tokens" {
     error_message = "a yearly-renewed token per account"
   }
   assert {
-    condition     = output.kv_paths == { homepage = "apps/homepage/argocd", radar = "apps/radar/argocd" }
-    error_message = "each token goes to apps/<account>/argocd"
+    condition     = output.kv_paths == { homepage = "apps/homepage/argocd", radar = "apps/radar/argocd-token" }
+    error_message = "each token goes to apps/<account>/argocd unless kv_path says otherwise"
   }
   assert {
     condition     = jsondecode(vault_kv_secret_v2.token["homepage"].data_json) == { token = "jwt" } && vault_kv_secret_v2.token["homepage"].mount == "kv"
     error_message = "OpenBao gets {token} on the kv mount"
   }
+}
+
+run "kv_paths_are_distinct" {
+  command = plan
+  variables {
+    readonly_accounts = {
+      homepage = {}
+      radar    = { kv_path = "apps/homepage/argocd" }
+    }
+  }
+  expect_failures = [var.readonly_accounts]
 }

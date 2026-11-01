@@ -10,16 +10,25 @@ accounts themselves are declared in Argo CD's own config; only their tokens are 
 module "argocd" {
   source = "git::https://github.com/aeglanee/tofu-modules.git//modules/argocd?ref=v0.1.0"
 
-  readonly_accounts = ["homepage", "radar"]
+  readonly_accounts = {
+    homepage = {}
+    radar    = {}
+  }
 }
 ```
 
 | Input | Default | Notes |
 |---|---|---|
-| `readonly_accounts` | | each must exist in Argo CD (`accounts.<name>: apiKey` and a read-only role) |
-| `kv_mount` | `kv` | tokens at `<kv_mount>/apps/<account>/argocd` as `{token}` |
+| `readonly_accounts` | | key = account; each must exist in Argo CD (`accounts.<name>: apiKey` and a read-only role); `kv_path` (see below) |
+| `kv_mount` | `kv` | tokens at `<kv_mount>/<kv_path>` as `{token}` |
 
 Output: `kv_paths` (path per account).
+
+## Conventions
+
+| Convention | Default | Override | Change with it |
+|---|---|---|---|
+| where an account's token goes | `apps/<account>/argocd` | `readonly_accounts[*].kv_path` | the consumer's ExternalSecret, and the policy of the root's CI role in [openbao-ci](../openbao-ci/) |
 
 ## Rotation
 
@@ -33,9 +42,10 @@ one and leaves the old one in Argo CD's list.
 
 - **Configure the providers:** `argocd` (the server address and a login that may update accounts;
   the built-in admin is the only one that can without a token first) and `vault` (a token that
-  may write `<kv_mount>/apps/*/argocd`).
+  may write each `<kv_mount>/<kv_path>`).
 - **Encrypt the state.** The tokens are in it.
 
 ## Tests
 
-`tofu test` (offline, all providers mocked) checks the tokens and where they are written.
+`tofu test` (offline, all providers mocked) checks the tokens, where they are written and the input
+validation.
