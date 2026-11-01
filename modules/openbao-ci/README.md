@@ -57,7 +57,7 @@ removing the branch's protection locks CI out rather than opening it up. Pull re
 
 | Convention | Default | Override | Change with it |
 |---|---|---|---|
-| the ref CI logs in from | `refs/heads/main` | `ref` | the branch protection in [gitea](../gitea/): only a protected ref gets `ref_protected = "true"` |
+| the ref CI logs in from | `refs/heads/main` | `ref` | [gitea](../gitea/)'s `protected_branch`: only a protected ref gets `ref_protected = "true"` |
 
 ## A job logging in
 

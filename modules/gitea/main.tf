@@ -1,6 +1,8 @@
 locals {
   # One collaborator per bot and repository.
   collaborators = merge([for b, c in var.bots : { for r in c.repos : "${b}/${r}" => { bot = b, repo = r, access = c.access } }]...)
+
+  bot_kv_paths = { for k, b in var.bots : k => coalesce(b.kv_path, "providers/gitea-${k}") }
 }
 
 # --- Repositories ---------------------------------------------------------------------------------
@@ -29,14 +31,14 @@ resource "gitea_repository" "repo" {
 }
 
 # Not to restrict pushes (anyone with write may still push, so Renovate and the sync keep working)
-# but to refuse force-pushes and deletion of main, which the fast-forward-only sync relies on. It
-# also makes Gitea Actions ID tokens from main carry ref_protected = "true".
+# but to refuse force-pushes and deletion of the branch, which the fast-forward-only sync relies
+# on. It also makes Gitea Actions ID tokens from it carry ref_protected = "true".
 resource "gitea_repository_branch_protection" "main" {
   for_each = toset(var.repos)
 
   username    = gitea_org.main.name
   name        = gitea_repository.repo[each.key].name
-  rule_name   = "main"
+  rule_name   = var.protected_branch
   enable_push = true
 }
 
@@ -80,7 +82,7 @@ resource "restapi_object" "bot_token" {
   for_each = var.bots
 
   path         = "/api/v1/users/${gitea_user.bot[each.key].username}/tokens"
-  data         = jsonencode({ name = "tofu", scopes = each.value.scopes })
+  data         = jsonencode({ name = each.value.token_name, scopes = each.value.scopes })
   id_attribute = "id"
   read_search = {
     search_key   = "id"
@@ -89,8 +91,8 @@ resource "restapi_object" "bot_token" {
   # The list adds id, token_last_eight and timestamps (last_used_at changes with every use); only
   # what was sent is compared.
   ignore_server_additions = true
-  # Gitea can't edit a token: other scopes need a new one.
-  force_new = ["scopes"]
+  # Gitea can't edit a token: another name or other scopes need a new one.
+  force_new = ["name", "scopes"]
 
   lifecycle {
     # The provider marks its attributes sensitive only with API_DATA_IS_SENSITIVE=true in its
@@ -107,7 +109,7 @@ resource "vault_kv_secret_v2" "bot" {
   for_each = var.bots
 
   mount = var.kv_mount
-  name  = "providers/gitea-${each.key}"
+  name  = local.bot_kv_paths[each.key]
   data_json = jsonencode({
     username = gitea_user.bot[each.key].username
     token    = jsondecode(restapi_object.bot_token[each.key].create_response).sha1
@@ -120,13 +122,13 @@ resource "vault_kv_secret_v2" "bot" {
 data "gitea_user" "admin" {}
 
 resource "gitea_token" "tofu_state" {
-  name   = "tofu-state"
+  name   = var.state_token_name
   scopes = ["write:package"]
 }
 
 resource "vault_kv_secret_v2" "tofu_state" {
   mount = var.kv_mount
-  name  = "providers/gitea-tofu-state"
+  name  = var.state_token_kv_path
   data_json = jsonencode({
     username = data.gitea_user.admin.username
     token    = gitea_token.tofu_state.token

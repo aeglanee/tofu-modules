@@ -40,7 +40,7 @@ run "repos" {
   }
   assert {
     condition     = alltrue([for p in gitea_repository_branch_protection.main : p.rule_name == "main" && p.enable_push]) && length(gitea_repository_branch_protection.main) == 2
-    error_message = "every repo's main is protected, with pushes still allowed"
+    error_message = "every repo's main is protected by default, with pushes still allowed"
   }
   assert {
     condition     = keys(gitea_repository_collaborator.bot) == ["argocd/gitops", "argocd/homelab", "sync/homelab"] && gitea_repository_collaborator.bot["argocd/gitops"].permission == "read"
@@ -72,7 +72,7 @@ run "bots_and_mirrors" {
     error_message = "the token from the create response goes to OpenBao with the username"
   }
   assert {
-    condition     = jsondecode(vault_kv_secret_v2.tofu_state.data_json) == { username = "admin", token = "state-token" } && gitea_token.tofu_state.scopes == toset(["write:package"])
+    condition     = jsondecode(vault_kv_secret_v2.tofu_state.data_json) == { username = "admin", token = "state-token" } && gitea_token.tofu_state.name == "tofu-state" && gitea_token.tofu_state.scopes == toset(["write:package"])
     error_message = "the admin's write:package token goes to providers/gitea-tofu-state"
   }
   assert {
@@ -86,6 +86,37 @@ run "bots_and_mirrors" {
   assert {
     condition     = gitea_repository.mirror["gateway-api"].migration_clone_address == "https://github.com/kubernetes-sigs/gateway-api" && gitea_repository.mirror["gateway-api"].migration_service == "git"
     error_message = "a mirror clones its upstream as plain git"
+  }
+}
+
+# Every convention overridden: kv paths, token names and the protected branch.
+run "overrides" {
+  command = plan
+  variables {
+    bots = {
+      argocd = { access = "read", repos = ["homelab"], scopes = ["read:repository"], kv_path = "apps/argocd/gitea", token_name = "argocd" }
+      sync   = { access = "write", repos = ["homelab"], scopes = ["write:repository"] }
+    }
+    protected_branch    = "trunk"
+    state_token_name    = "state"
+    state_token_kv_path = "ci/state"
+  }
+
+  assert {
+    condition     = alltrue([for p in gitea_repository_branch_protection.main : p.rule_name == "trunk"])
+    error_message = "protected_branch names the protected branch"
+  }
+  assert {
+    condition     = jsondecode(restapi_object.bot_token["argocd"].data).name == "argocd" && jsondecode(restapi_object.bot_token["sync"].data).name == "tofu"
+    error_message = "token_name names a bot's token, tofu by default"
+  }
+  assert {
+    condition     = vault_kv_secret_v2.bot["argocd"].name == "apps/argocd/gitea" && vault_kv_secret_v2.bot["sync"].name == "providers/gitea-sync"
+    error_message = "kv_path moves a bot's token, providers/gitea-<bot> by default"
+  }
+  assert {
+    condition     = gitea_token.tofu_state.name == "state" && vault_kv_secret_v2.tofu_state.name == "ci/state"
+    error_message = "state_token_name and state_token_kv_path move the state token"
   }
 }
 
@@ -109,6 +140,14 @@ run "no_bot_called_tofu_state" {
   command = plan
   variables {
     bots = { tofu-state = { access = "read", repos = [], scopes = ["read:repository"] } }
+  }
+  expect_failures = [var.bots]
+}
+
+run "kv_paths_are_distinct" {
+  command = plan
+  variables {
+    bots = { x = { access = "read", repos = [], scopes = ["read:repository"], kv_path = "providers/gitea-tofu-state" } }
   }
   expect_failures = [var.bots]
 }
