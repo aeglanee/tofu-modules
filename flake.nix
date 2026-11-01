@@ -15,6 +15,9 @@
           pre-commit
           nodejs # the markdownlint hook uses it instead of downloading a non-NixOS build
         ];
+        # The restapi provider marks its attributes sensitive only with this set; modules/gitea
+        # refuses to run without it (its tests too).
+        API_DATA_IS_SENSITIVE = "true";
       };
     };
 }
