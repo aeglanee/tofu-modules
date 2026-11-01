@@ -1,26 +1,34 @@
-# Harbor's registry storage: a dedicated bucket and a key that owns it.
-resource "garage_bucket" "harbor_registry" {
-  global_alias = "harbor-registry"
+locals {
+  kv_paths = { for k, b in var.buckets : k => coalesce(b.kv_path, "providers/garage-${k}") }
 }
 
-resource "garage_key" "harbor" {
-  name = "harbor-registry"
+# A dedicated bucket per consumer and a key that owns it.
+resource "garage_bucket" "consumer" {
+  for_each     = var.buckets
+  global_alias = each.value.bucket
 }
 
-resource "garage_bucket_permission" "harbor" {
-  bucket_id     = garage_bucket.harbor_registry.id
-  access_key_id = garage_key.harbor.id
+resource "garage_key" "consumer" {
+  for_each = var.buckets
+  name     = each.value.bucket
+}
+
+resource "garage_bucket_permission" "consumer" {
+  for_each      = var.buckets
+  bucket_id     = garage_bucket.consumer[each.key].id
+  access_key_id = garage_key.consumer[each.key].id
   read          = true
   write         = true
-  owner         = true # a dedicated bucket: Harbor gets full control (multipart cleanup, lifecycle)
+  owner         = true # a dedicated bucket: the consumer gets full control (multipart cleanup, lifecycle)
 }
 
-# Garage generates the key; Harbor's ExternalSecret reads this copy.
-resource "vault_kv_secret_v2" "harbor" {
-  mount = var.kv_mount
-  name  = "providers/garage-harbor"
+# Garage generates the key; the consumer's ExternalSecret reads this copy.
+resource "vault_kv_secret_v2" "consumer" {
+  for_each = var.buckets
+  mount    = var.kv_mount
+  name     = local.kv_paths[each.key]
   data_json = jsonencode({
-    accessKey = garage_key.harbor.id
-    secretKey = garage_key.harbor.secret_access_key
+    accessKey = garage_key.consumer[each.key].id
+    secretKey = garage_key.consumer[each.key].secret_access_key
   })
 }
