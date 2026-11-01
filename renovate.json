@@ -20,8 +20,7 @@
     {
       "description": "Majors of anything -> REVIEW. Minors and patches auto-merge once this repo's checks pass.",
       "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "addLabels": ["needs-review"]
+      "automerge": false
     }
   ]
 }
