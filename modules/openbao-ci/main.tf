@@ -6,45 +6,10 @@
 locals {
   issuer = "${trimsuffix(var.gitea_url, "/")}/api/actions/oidc"
 
-  # One policy per role, named after it.
-  policies = {
-    # Every job: the Tofu state token and the two sync tokens. Read-only.
-    ci = <<-EOT
-      path "${var.kv_mount}/data/providers/github-sync"      { capabilities = ["read"] }
-      path "${var.kv_mount}/data/providers/gitea-sync"       { capabilities = ["read"] }
-      path "${var.kv_mount}/data/providers/gitea-tofu-state" { capabilities = ["read"] }
-    EOT
-
-    # The gitea module: reads the admin login; writes the bot and state tokens. delete: removing a
-    # bot destroys its record.
-    terraform-gitea = <<-EOT
-      path "${var.kv_mount}/data/providers/gitea"       { capabilities = ["read"] }
-      path "${var.kv_mount}/metadata/providers/gitea"   { capabilities = ["read"] }
-      path "${var.kv_mount}/data/providers/gitea-*"     { capabilities = ["create", "update", "read", "delete"] }
-      path "${var.kv_mount}/metadata/providers/gitea-*" { capabilities = ["read", "delete"] }
-    EOT
-
-    # The harbor module: reads the Harbor admin login.
-    terraform-harbor = <<-EOT
-      path "${var.kv_mount}/data/providers/harbor"     { capabilities = ["read"] }
-      path "${var.kv_mount}/metadata/providers/harbor" { capabilities = ["read"] }
-    EOT
-
-    # The garage module: reads the admin token; writes each consumer's S3 key to
-    # providers/garage-<consumer>. delete: removing a consumer destroys its key record.
-    terraform-garage = <<-EOT
-      path "${var.kv_mount}/data/providers/garage"       { capabilities = ["read"] }
-      path "${var.kv_mount}/metadata/providers/garage"   { capabilities = ["read"] }
-      path "${var.kv_mount}/data/providers/garage-*"     { capabilities = ["create", "update", "read", "delete"] }
-      path "${var.kv_mount}/metadata/providers/garage-*" { capabilities = ["read", "delete"] }
-    EOT
-
-    # The argocd module: writes the minted account tokens to apps/<account>/argocd.
-    terraform-argocd = <<-EOT
-      path "${var.kv_mount}/data/apps/+/argocd"     { capabilities = ["create", "update", "read", "delete"] }
-      path "${var.kv_mount}/metadata/apps/+/argocd" { capabilities = ["read", "delete"] }
-    EOT
-  }
+  # One policy per role, named after it: a path rule per entry, under var.kv_mount.
+  policies = { for role, paths in var.policies : role => join("", [
+    for path, caps in paths : "path ${jsonencode("${var.kv_mount}/${path}")} { capabilities = ${jsonencode(caps)} }\n"
+  ]) }
 }
 
 resource "vault_jwt_auth_backend" "gitea" {

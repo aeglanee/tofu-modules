@@ -5,6 +5,16 @@ mock_provider "vault" {}
 variables {
   gitea_url  = "https://gitea.example.com/"
   repository = "example/homelab"
+  policies = {
+    ci = {
+      "data/providers/gitea-tofu-state" = ["read"]
+    }
+    terraform-gitea = {
+      "data/providers/gitea"       = ["read"]
+      "data/providers/gitea-*"     = ["create", "update", "read", "delete"]
+      "metadata/providers/gitea-*" = ["read", "delete"]
+    }
+  }
 }
 
 run "backend_and_roles" {
@@ -19,8 +29,8 @@ run "backend_and_roles" {
     error_message = "the issuer is <ROOT_URL>/api/actions/oidc, without a doubled slash"
   }
   assert {
-    condition     = output.roles == tolist(["ci", "terraform-argocd", "terraform-garage", "terraform-gitea", "terraform-harbor"])
-    error_message = "one role per policy"
+    condition     = output.roles == tolist(["ci", "terraform-gitea"])
+    error_message = "one role per entry of var.policies"
   }
   assert {
     condition = alltrue([for r in vault_jwt_auth_backend_role.role : r.bound_claims == tomap({
@@ -33,12 +43,12 @@ run "backend_and_roles" {
     error_message = "a role gets the policy of its name"
   }
   assert {
-    condition     = strcontains(vault_policy.role["ci"].policy, "\"kv/data/providers/gitea-tofu-state\"") && !strcontains(vault_policy.role["ci"].policy, "update")
-    error_message = "ci reads the state token and nothing more"
+    condition     = vault_policy.role["ci"].policy == "path \"kv/data/providers/gitea-tofu-state\" { capabilities = [\"read\"] }\n"
+    error_message = "a policy has one path rule per entry, under the kv mount, and nothing more"
   }
   assert {
-    condition     = strcontains(vault_policy.role["terraform-gitea"].policy, "path \"kv/data/providers/gitea-*\"     { capabilities = [\"create\", \"update\", \"read\", \"delete\"] }")
-    error_message = "terraform-gitea writes providers/gitea-*"
+    condition     = strcontains(vault_policy.role["terraform-gitea"].policy, "path \"kv/data/providers/gitea-*\" { capabilities = [\"create\",\"update\",\"read\",\"delete\"] }\n")
+    error_message = "the capabilities are kept as listed"
   }
 }
 
@@ -53,7 +63,7 @@ run "other_ref_and_mount" {
     error_message = "ref is configurable"
   }
   assert {
-    condition     = strcontains(vault_policy.role["terraform-harbor"].policy, "\"secret/data/providers/harbor\"")
+    condition     = strcontains(vault_policy.role["terraform-gitea"].policy, "\"secret/data/providers/gitea\"")
     error_message = "the policies follow kv_mount"
   }
 }

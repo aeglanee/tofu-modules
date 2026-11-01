@@ -13,6 +13,15 @@ variable "repository" {
   }
 }
 
+variable "policies" {
+  description = <<-EOT
+    One role per entry, with a policy of the same name; the key is the role a job logs in as. The
+    value maps a path under var.kv_mount (e.g. "data/providers/harbor") to its capabilities (e.g.
+    ["read"]).
+  EOT
+  type        = map(map(list(string)))
+}
+
 variable "ref" {
   description = "The only ref whose jobs may log in; it must be a protected branch."
   type        = string

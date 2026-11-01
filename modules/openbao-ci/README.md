@@ -16,6 +16,17 @@ module "openbao_ci" {
 
   gitea_url  = "https://gitea.example.com"
   repository = "example/homelab"
+  policies = {
+    # Every job: the Tofu state token, read-only.
+    ci = {
+      "data/providers/gitea-tofu-state" = ["read"]
+    }
+    # A Tofu root that reads Harbor's admin login.
+    terraform-harbor = {
+      "data/providers/harbor"     = ["read"]
+      "metadata/providers/harbor" = ["read"]
+    }
+  }
 }
 ```
 
@@ -23,6 +34,7 @@ module "openbao_ci" {
 |---|---|---|
 | `gitea_url` | | Gitea's `ROOT_URL`; the issuer is `<gitea_url>/api/actions/oidc` |
 | `repository` | | `<owner>/<name>`, the only repository whose jobs may log in |
+| `policies` | | role name => {path under `kv_mount` => capabilities}; one role and one policy of the same name per entry |
 | `ref` | `refs/heads/main` | the only ref whose jobs may log in; must be a protected branch |
 | `kv_mount` | `kv` | the KV v2 mount the policies cover |
 
@@ -30,20 +42,22 @@ Outputs: `issuer`, `login_path` (`auth/gitea-jwt/login`) and `roles`.
 
 ## Roles
 
-Every role is bound to `repository`, `ref`, `ref_protected = "true"` and the audience `openbao`.
-Paths are under `<kv_mount>/data/` (and `metadata/` where Tofu manages the secret).
+Every role is bound to `repository`, `ref`, `ref_protected = "true"` and the audience `openbao`,
+and gets the policy of its name: one rule per entry, `path "<kv_mount>/<path>" { capabilities =
+[...] }`. A KV v2 secret has two paths: `data/<name>` and `metadata/<name>`.
 
-| Role | May |
-|---|---|
-| `ci` | read `providers/github-sync`, `providers/gitea-sync`, `providers/gitea-tofu-state` |
-| `terraform-gitea` | read `providers/gitea`; create, update, read, delete `providers/gitea-*` |
-| `terraform-harbor` | read `providers/harbor` |
-| `terraform-garage` | read `providers/garage`; create, update, read, delete `providers/garage-*` |
-| `terraform-argocd` | create, update, read, delete `apps/+/argocd` |
+The paths are where the other modules write and read, so a changed `kv_path` there (gitea, garage,
+argocd) needs the matching policy here.
 
 `ref_protected` is what Gitea computes from the branch protection rules when it signs the token, so
-removing `main`'s protection locks CI out rather than opening it up. Pull request runs carry
+removing the branch's protection locks CI out rather than opening it up. Pull request runs carry
 `refs/pull/<n>/merge` and never match.
+
+## Conventions
+
+| Convention | Default | Override | Change with it |
+|---|---|---|---|
+| the ref CI logs in from | `refs/heads/main` | `ref` | the branch protection in [gitea](../gitea/): only a protected ref gets `ref_protected = "true"` |
 
 ## A job logging in
 
@@ -76,8 +90,8 @@ and becomes the OpenBao entity alias.
 
 ## Tests
 
-`tofu test` (offline, OpenBao mocked) checks the issuer, the role bindings, the policy paths and
-the input validation.
+`tofu test` (offline, OpenBao mocked) checks the issuer, the role bindings, how the policies are
+rendered and the input validation.
 
 A live run on 2026-11-01 against an OpenBao 2.7.2 dev server applied cleanly and planned no
 changes afterwards. A local stand-in issuer signed tokens shaped like Gitea's (`aud` and
