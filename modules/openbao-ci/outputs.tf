@@ -4,7 +4,7 @@ output "issuer" {
 }
 
 output "login_path" {
-  description = "Where a job logs in: POST auth/<path>/login with {role, jwt}."
+  description = "Where a job logs in: POST auth/<auth_path>/login with {role, jwt}."
   value       = "auth/${vault_jwt_auth_backend.gitea.path}/login"
 }
 

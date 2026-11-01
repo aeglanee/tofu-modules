@@ -1,9 +1,9 @@
 # openbao-ci
 
-What CI needs from OpenBao: a JWT auth backend at `auth/gitea-jwt` that trusts Gitea Actions' OIDC
-ID tokens, and one role per job type, each with a policy of the same name. A job trades its
-short-lived ID token for an OpenBao token that lives 30 minutes and can't be renewed past that;
-nothing is stored in Gitea.
+What CI needs from OpenBao: a JWT auth backend (at `auth/gitea-jwt` by default) that trusts Gitea
+Actions' OIDC ID tokens, and one role per job type, each with a policy of the same name. A job
+trades its short-lived ID token for an OpenBao token that lives 30 minutes and can't be renewed
+past that; nothing is stored in Gitea.
 
 Everything else in OpenBao (the KV mount, Kubernetes auth, the External Secrets roles) is
 OpenBao's own declarative self-init, not this module.
@@ -36,15 +36,17 @@ module "openbao_ci" {
 | `repository` | | `<owner>/<name>`, the only repository whose jobs may log in |
 | `policies` | | role name => {path under `kv_mount` => capabilities}; one role and one policy of the same name per entry |
 | `ref` | `refs/heads/main` | the only ref whose jobs may log in; must be a protected branch |
+| `auth_path` | `gitea-jwt` | the auth method's mount path; jobs log in at `auth/<auth_path>/login` |
+| `audience` | `openbao` | the audience every role requires |
 | `kv_mount` | `kv` | the KV v2 mount the policies cover |
 
-Outputs: `issuer`, `login_path` (`auth/gitea-jwt/login`) and `roles`.
+Outputs: `issuer`, `login_path` (`auth/<auth_path>/login`) and `roles`.
 
 ## Roles
 
-Every role is bound to `repository`, `ref`, `ref_protected = "true"` and the audience `openbao`,
-and gets the policy of its name: one rule per entry, `path "<kv_mount>/<path>" { capabilities =
-[...] }`. A KV v2 secret has two paths: `data/<name>` and `metadata/<name>`.
+Every role is bound to `repository`, `ref`, `ref_protected = "true"` and `audience`, and gets the
+policy of its name: one rule per entry, `path "<kv_mount>/<path>" { capabilities = [...] }`. A KV
+v2 secret has two paths: `data/<name>` and `metadata/<name>`.
 
 The paths are where the other modules write and read, so a changed `kv_path` there (gitea, garage,
 argocd) needs the matching policy here.
@@ -58,12 +60,14 @@ removing the branch's protection locks CI out rather than opening it up. Pull re
 | Convention | Default | Override | Change with it |
 |---|---|---|---|
 | the ref CI logs in from | `refs/heads/main` | `ref` | [gitea](../gitea/)'s `protected_branch`: only a protected ref gets `ref_protected = "true"` |
+| where CI logs in | `gitea-jwt` | `auth_path` | every workflow's login URL, `$VAULT_ADDR/v1/auth/<auth_path>/login` |
+| the ID token's audience | `openbao` | `audience` | every workflow's ID token request, `&audience=<audience>` |
 
 ## A job logging in
 
 The job asks for the ID token with `permissions: id-token: write` (default permissions never grant
 it). The runner then sets `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN`; the
-URL ends in `?`, and the audience is the `audience` query parameter:
+URL ends in `?`, and the audience is the `audience` query parameter (the defaults here):
 
 ```yaml
 permissions:
@@ -91,7 +95,7 @@ and becomes the OpenBao entity alias.
 ## Tests
 
 `tofu test` (offline, OpenBao mocked) checks the issuer, the role bindings, how the policies are
-rendered and the input validation.
+rendered, the overrides and the input validation.
 
 A live run on 2026-11-01 against an OpenBao 2.7.2 dev server applied cleanly and planned no
 changes afterwards. A local stand-in issuer signed tokens shaped like Gitea's (`aud` and

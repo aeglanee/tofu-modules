@@ -1,6 +1,6 @@
 # CI → OpenBao: a Gitea Actions job with `permissions: id-token: write` trades its OIDC ID token
-# (audience "openbao") for a short-lived OpenBao token with one role's policy. Nothing is stored in
-# Gitea. Only jobs of var.repository on var.ref may log in, and only while that ref is protected:
+# (audience var.audience) for a short-lived OpenBao token with one role's policy. Nothing is stored
+# in Gitea. Only jobs of var.repository on var.ref may log in, and only while that ref is protected:
 # Gitea computes ref_protected from the branch protection rules when it signs the token.
 
 locals {
@@ -13,7 +13,7 @@ locals {
 }
 
 resource "vault_jwt_auth_backend" "gitea" {
-  path               = "gitea-jwt"
+  path               = var.auth_path
   description        = "Gitea Actions OIDC ID tokens (${local.issuer})"
   oidc_discovery_url = local.issuer
   bound_issuer       = local.issuer
@@ -32,7 +32,7 @@ resource "vault_jwt_auth_backend_role" "role" {
   role_name       = each.key
   role_type       = "jwt"
   user_claim      = "sub" # repo:<owner>@<owner id>/<repo>@<repo id>:ref:<ref>
-  bound_audiences = ["openbao"]
+  bound_audiences = [var.audience]
   # Gitea sends every claim as a string, ref_protected too ("true"/"false").
   bound_claims = {
     repository    = var.repository

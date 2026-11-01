@@ -28,6 +28,18 @@ variable "ref" {
   default     = "refs/heads/main"
 }
 
+variable "auth_path" {
+  description = "Mount path of the JWT auth method; jobs log in at auth/<auth_path>/login."
+  type        = string
+  default     = "gitea-jwt"
+}
+
+variable "audience" {
+  description = "The audience every role requires; jobs request their ID token with &audience=<audience>."
+  type        = string
+  default     = "openbao"
+}
+
 variable "kv_mount" {
   description = "OpenBao KV v2 mount the policies grant access to."
   type        = string

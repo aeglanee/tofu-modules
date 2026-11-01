@@ -68,6 +68,22 @@ run "other_ref_and_mount" {
   }
 }
 
+run "other_auth_path_and_audience" {
+  command = plan
+  variables {
+    auth_path = "ci-jwt"
+    audience  = "bao"
+  }
+  assert {
+    condition     = vault_jwt_auth_backend.gitea.path == "ci-jwt" && output.login_path == "auth/ci-jwt/login"
+    error_message = "the backend and login_path follow auth_path"
+  }
+  assert {
+    condition     = alltrue([for r in vault_jwt_auth_backend_role.role : r.backend == "ci-jwt" && r.bound_audiences == toset(["bao"])])
+    error_message = "every role is on the backend at auth_path and bound to audience"
+  }
+}
+
 run "repository_needs_owner" {
   command = plan
   variables {
