@@ -50,7 +50,10 @@ module "sso" {
 ```sh
 nix develop -c pre-commit install    # once; hooks then run on every commit
 nix develop -c tofu -chdir=modules/<module> test
+nix develop -c tflint --recursive --config "$PWD/.tflint.hcl"
 ```
 
 `tofu test` mocks every provider, so it runs offline and checks what a module would ask for, not
-that the API accepts it.
+that the API accepts it. CI (`.gitea/workflows/validate.yml`, in Gitea, on every push) runs the
+same: the pre-commit hooks, gitleaks, `renovate.json`, `tofu fmt`/`validate`/`test` for every module,
+and tflint. Renovate auto-merges a pull request only once all of it passed.

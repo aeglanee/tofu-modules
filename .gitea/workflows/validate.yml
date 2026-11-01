@@ -1,0 +1,97 @@
+# Gitea Actions — the modules' checks on every push (any branch): pre-commit hooks, gitleaks,
+# renovate.json, tofu fmt/validate/test for every module, and tflint. Results show as commit/PR status
+# checks; Renovate auto-merges a pull request only once all of them passed.
+# Jobs run as k8s pods (the runner's label `k8s`); each picks its image.
+name: validate
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: k8s
+    container:
+      image: python:3.15.2-slim-trixie
+    steps:
+      - name: checkout
+        run: |
+          # libatomic1: the Node build pre-commit downloads for markdownlint links against it.
+          apt-get update -qq && apt-get install -qq -y --no-install-recommends git libatomic1 >/dev/null
+          git clone -q --depth 20 --branch "$GITHUB_REF_NAME" "https://ci:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" .
+          git checkout -q "$GITHUB_SHA"
+      - name: pre-commit
+        env:
+          # Each has its own job below, in an image that already carries the tool.
+          SKIP: tofu-fmt,renovate-config-validator,gitleaks
+        run: |
+          pip install -q --root-user-action=ignore pre-commit==4.7.0
+          pre-commit run --all-files --show-diff-on-failure
+
+  gitleaks:
+    runs-on: k8s
+    container:
+      image: ghcr.io/gitleaks/gitleaks:v8.30.1
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: checkout
+        run: |
+          git clone -q --depth 20 --branch "$GITHUB_REF_NAME" "https://ci:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" .
+          git checkout -q "$GITHUB_SHA"
+      - name: gitleaks (working tree)
+        run: gitleaks dir --redact --no-banner .
+
+  renovate-config:
+    runs-on: k8s
+    container:
+      image: ghcr.io/renovatebot/renovate:44.199.2
+    steps:
+      - name: checkout
+        run: |
+          git clone -q --depth 20 --branch "$GITHUB_REF_NAME" "https://ci:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" repo
+          git -C repo checkout -q "$GITHUB_SHA"
+      - name: renovate-config-validator
+        run: cd repo && renovate-config-validator --strict
+
+  tofu:
+    runs-on: k8s
+    container:
+      image: ghcr.io/opentofu/opentofu:1.13.5
+    defaults:
+      run:
+        shell: sh
+    env:
+      API_DATA_IS_SENSITIVE: "true" # the gitea module's tests need it (the restapi provider)
+    steps:
+      - name: checkout
+        run: |
+          apk add --no-cache git >/dev/null
+          git clone -q --depth 20 --branch "$GITHUB_REF_NAME" "https://ci:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" .
+          git checkout -q "$GITHUB_SHA"
+      - name: tofu fmt, validate, test
+        run: |
+          set -e
+          tofu fmt -check -recursive || { echo "FAIL: run 'tofu fmt -recursive'"; exit 1; }
+          for m in modules/*/; do
+            echo "=== $m"
+            tofu -chdir="$m" init -backend=false -input=false >/dev/null
+            tofu -chdir="$m" validate -no-color
+            tofu -chdir="$m" test -no-color
+          done
+
+  tflint:
+    runs-on: k8s
+    container:
+      image: ghcr.io/terraform-linters/tflint:v0.65.0
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - name: checkout
+        run: |
+          apk add --no-cache git >/dev/null
+          git clone -q --depth 20 --branch "$GITHUB_REF_NAME" "https://ci:${{ github.token }}@${GITHUB_SERVER_URL#https://}/${{ github.repository }}.git" .
+          git checkout -q "$GITHUB_SHA"
+      - name: tflint
+        run: tflint --recursive --config "$PWD/.tflint.hcl" --format compact

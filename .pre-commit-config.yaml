@@ -19,6 +19,21 @@ repos:
     hooks:
       - id: gitleaks
 
+  # actionlint-py ships the prebuilt binary, so CI doesn't compile Go in its 1Gi job pod.
+  - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
+    rev: 805f85e558841bf4d852335e036b33d2b26be1cc  # frozen: v1.7.12.25
+    hooks:
+      # Gitea workflows live in .gitea/, which actionlint doesn't scan on its own.
+      - id: actionlint
+        files: ^\.gitea/workflows/
+        args: [-config-file, .gitea/actionlint.yaml]
+
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    rev: 5d28ad76689820e37135aae979858e64c705d31b  # frozen: 44.188.2
+    hooks:
+      - id: renovate-config-validator
+        args: [--strict]
+
   - repo: local
     hooks:
       - id: tofu-fmt

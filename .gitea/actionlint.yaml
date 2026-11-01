@@ -1,0 +1,4 @@
+---
+self-hosted-runner:
+  # The Gitea runner's Kubernetes backend (homelab's gitops catalogue, the git package).
+  labels: [k8s]

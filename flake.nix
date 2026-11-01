@@ -1,5 +1,5 @@
 {
-  description = "tofu-modules — repo toolchain (OpenTofu, pre-commit)";
+  description = "tofu-modules — repo toolchain (OpenTofu, pre-commit, tflint)";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -13,6 +13,7 @@
         packages = with pkgs; [
           opentofu
           pre-commit
+          tflint
           nodejs # the markdownlint hook uses it instead of downloading a non-NixOS build
         ];
         # The restapi provider marks its attributes sensitive only with this set; modules/gitea

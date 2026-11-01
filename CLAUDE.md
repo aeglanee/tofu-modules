@@ -15,5 +15,6 @@ roots pinned to a commit.
   ```sh
   nix develop -c tofu -chdir=modules/<module> init   # once per module
   nix develop -c tofu -chdir=modules/<module> test
+  nix develop -c tflint --recursive --config "$PWD/.tflint.hcl"
   nix develop -c pre-commit run --all-files
   ```
