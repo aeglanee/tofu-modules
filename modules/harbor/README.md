@@ -1,8 +1,8 @@
 # harbor
 
 Harbor's proxy caches: one registry endpoint and one public `<key>-proxy` project per upstream
-registry, plus a public `helm-charts` project as the push target for charts that only exist in HTTP
-Helm repositories (Harbor 2.x proxies OCI only).
+registry, plus public projects to push to, for what Harbor can't proxy (charts that only exist in
+HTTP Helm repositories: Harbor 2.x proxies OCI only).
 
 ## Inputs
 
@@ -18,12 +18,14 @@ module "harbor" {
     # A plain-HTTP in-cluster endpoint, such as an HTTP-to-OCI Helm shim.
     shim = { provider_name = "docker-registry", endpoint_url = "http://chart-proxy.chart-proxy.svc:9000", insecure = true }
   }
+  projects = ["helm-charts"]
 }
 ```
 
 | Input | Default | Notes |
 |---|---|---|
 | `registries` | | key = endpoint name, project `<key>-proxy`; `provider_name`, `endpoint_url`, `insecure` (`false`) |
+| `projects` | | public push-target projects that aren't proxy caches; `[]` for none |
 
 Output: `proxy_projects` (project name per key). Images pull as
 `harbor.<domain>/<key>-proxy/<repo>:<tag>`; whatever points nodes or charts at those paths (a
@@ -36,5 +38,5 @@ containerd mirror config, for example) must use the same keys.
 
 ## Tests
 
-`tofu test` (offline, Harbor mocked) checks the project names, the registry each one caches and the
-`insecure` default.
+`tofu test` (offline, Harbor mocked) checks the project names, the registry each one caches, the
+`insecure` default, the push targets and the input validation.

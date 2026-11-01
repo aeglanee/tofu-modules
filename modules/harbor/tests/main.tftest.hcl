@@ -6,6 +6,7 @@ variables {
     dockerhub = { provider_name = "docker-hub", endpoint_url = "https://hub.docker.com" }
     shim      = { provider_name = "docker-registry", endpoint_url = "http://chart-proxy.chart-proxy.svc:9000", insecure = true }
   }
+  projects = ["helm-charts"]
 }
 
 run "projects" {
@@ -24,7 +25,26 @@ run "projects" {
     error_message = "each proxy project caches its own registry"
   }
   assert {
-    condition     = harbor_project.helm_charts.name == "helm-charts"
-    error_message = "the helm-charts push target exists"
+    condition     = keys(harbor_project.push) == ["helm-charts"] && harbor_project.push["helm-charts"].public
+    error_message = "each entry of projects is a public project"
   }
+}
+
+run "no_push_projects" {
+  command = plan
+  variables {
+    projects = []
+  }
+  assert {
+    condition     = length(harbor_project.push) == 0
+    error_message = "projects may be empty"
+  }
+}
+
+run "project_names_are_distinct" {
+  command = plan
+  variables {
+    projects = ["dockerhub-proxy"]
+  }
+  expect_failures = [var.projects]
 }

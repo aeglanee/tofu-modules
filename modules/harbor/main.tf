@@ -14,11 +14,12 @@ resource "harbor_project" "proxy" {
   public      = true
 }
 
-# Push target for charts mirrored in by hand: Harbor 2.x can't proxy an HTTP (index.yaml) Helm
-# repo, only OCI.
-resource "harbor_project" "helm_charts" {
-  name   = "helm-charts"
-  public = true
+# Push targets for what Harbor can't proxy, such as charts mirrored in by hand from an HTTP
+# (index.yaml) Helm repo: Harbor 2.x proxies OCI only.
+resource "harbor_project" "push" {
+  for_each = var.projects
+  name     = each.key
+  public   = true
 }
 
 # Harbor creates the default "library" project itself; it isn't managed here.

@@ -12,3 +12,13 @@ variable "registries" {
     insecure      = optional(bool, false)
   }))
 }
+
+variable "projects" {
+  description = "Public projects that aren't proxy caches: push targets, e.g. for charts from HTTP-only Helm repos (Harbor 2.x proxies OCI only). Empty for none."
+  type        = set(string)
+
+  validation {
+    condition     = length(distinct(concat([for k in keys(var.registries) : "${k}-proxy"], tolist(var.projects)))) == length(var.registries) + length(var.projects)
+    error_message = "Two projects would have the same name."
+  }
+}
