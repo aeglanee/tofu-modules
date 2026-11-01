@@ -1,6 +1,6 @@
 # harbor
 
-Harbor's proxy caches: one registry endpoint and one public `<key>-proxy` project per upstream
+Harbor's proxy caches: one registry endpoint and one public proxy-cache project per upstream
 registry, plus public projects to push to, for what Harbor can't proxy (charts that only exist in
 HTTP Helm repositories: Harbor 2.x proxies OCI only).
 
@@ -24,12 +24,17 @@ module "harbor" {
 
 | Input | Default | Notes |
 |---|---|---|
-| `registries` | | key = endpoint name, project `<key>-proxy`; `provider_name`, `endpoint_url`, `insecure` (`false`) |
+| `registries` | | key = endpoint name; `provider_name`, `endpoint_url`, `insecure` (`false`), `project` (see below) |
 | `projects` | | public push-target projects that aren't proxy caches; `[]` for none |
 
 Output: `proxy_projects` (project name per key). Images pull as
-`harbor.<domain>/<key>-proxy/<repo>:<tag>`; whatever points nodes or charts at those paths (a
-containerd mirror config, for example) must use the same keys.
+`harbor.<domain>/<project>/<repo>:<tag>`.
+
+## Conventions
+
+| Convention | Default | Override | Change with it |
+|---|---|---|---|
+| a proxy-cache project's name | `<key>-proxy` | `registries[*].project` | whatever points nodes or charts at those paths (a containerd mirror config, a chart mirror table) |
 
 ## The calling root
 

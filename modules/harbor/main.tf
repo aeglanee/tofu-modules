@@ -1,4 +1,4 @@
-# One proxy-cache project per upstream registry. Pull path: harbor.<domain>/<key>-proxy/<repo>:<tag>.
+# One proxy-cache project per upstream registry. Pull path: harbor.<domain>/<project>/<repo>:<tag>.
 resource "harbor_registry" "upstream" {
   for_each      = var.registries
   name          = each.key
@@ -9,7 +9,7 @@ resource "harbor_registry" "upstream" {
 
 resource "harbor_project" "proxy" {
   for_each    = var.registries
-  name        = "${each.key}-proxy"
+  name        = coalesce(each.value.project, "${each.key}-proxy")
   registry_id = harbor_registry.upstream[each.key].registry_id
   public      = true
 }

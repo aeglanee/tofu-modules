@@ -4,7 +4,7 @@ mock_provider "harbor" {}
 variables {
   registries = {
     dockerhub = { provider_name = "docker-hub", endpoint_url = "https://hub.docker.com" }
-    shim      = { provider_name = "docker-registry", endpoint_url = "http://chart-proxy.chart-proxy.svc:9000", insecure = true }
+    shim      = { provider_name = "docker-registry", endpoint_url = "http://chart-proxy.chart-proxy.svc:9000", insecure = true, project = "charts" }
   }
   projects = ["helm-charts"]
 }
@@ -13,8 +13,8 @@ run "projects" {
   command = apply
 
   assert {
-    condition     = output.proxy_projects == { dockerhub = "dockerhub-proxy", shim = "shim-proxy" }
-    error_message = "one <key>-proxy project per registry"
+    condition     = output.proxy_projects == { dockerhub = "dockerhub-proxy", shim = "charts" }
+    error_message = "one proxy project per registry, <key>-proxy unless project says otherwise"
   }
   assert {
     condition     = harbor_registry.upstream["shim"].insecure && !harbor_registry.upstream["dockerhub"].insecure
