@@ -13,8 +13,10 @@ One map, one entry per client, in the shape of an app's `sso.yaml` (snake_case h
 module "sso" {
   source = "git::https://github.com/aeglanee/tofu-modules.git//modules/authentik-sso?ref=v0.1.0"
 
-  domain      = "irkalla.eu"
-  admin_users = ["karmok"]
+  domain          = "example.com"
+  superuser_group = "authentik-admin"
+  admin_group     = "full-admin"
+  admin_users     = ["karmok"]
   clients = {
     grafana = {
       redirect_path = "/login/generic_oauth"
@@ -38,7 +40,7 @@ module "sso" {
 | `domain` | | apps at `https://<host>.<domain>` |
 | `authentik_host` | `authentik` | for the issuer URL |
 | `admin_users` | `[]` | members of `admin_group`; authoritative |
-| `admin_group` / `superuser_group` | `full-admin` / `authentik-admin` | `admin_group` inherits the superuser group and every app group |
+| `admin_group` / `superuser_group` | | created; `admin_group` inherits the superuser group and every app group |
 | `kv_mount` / `kv_prefix` | `kv` / `apps` | secrets at `<kv_mount>/<kv_prefix>/<client>/oidc` |
 | `secret_version` | `1` | bump to rewrite the secrets in OpenBao |
 | `authorization_flow`, `invalidation_flow`, `signing_key` | Authentik's defaults | |

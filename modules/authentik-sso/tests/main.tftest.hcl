@@ -53,7 +53,9 @@ variables {
       groups        = ["logs-viewer"]
     }
   }
-  admin_users = ["karmok"]
+  superuser_group = "authentik-admin"
+  admin_group     = "full-admin"
+  admin_users     = ["karmok"]
 }
 
 run "clients" {
@@ -90,6 +92,10 @@ run "clients" {
   assert {
     condition     = length(authentik_group.admin.parents) == 5 && authentik_group.admin.users == tolist([7])
     error_message = "the admin group inherits the superuser group and every app group, and holds the admin users"
+  }
+  assert {
+    condition     = authentik_group.superuser.name == "authentik-admin" && authentik_group.superuser.is_superuser && authentik_group.admin.name == "full-admin"
+    error_message = "the superuser and admin groups are named by the inputs"
   }
   assert {
     condition     = output.issuers["grafana"] == "https://authentik.example.com/application/o/grafana/" && !contains(keys(output.issuers), "victoria-logs")

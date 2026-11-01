@@ -55,15 +55,13 @@ variable "clients" {
 }
 
 variable "superuser_group" {
-  description = "Group whose members are Authentik superusers."
+  description = "Group whose members are Authentik superusers; created here."
   type        = string
-  default     = "authentik-admin"
 }
 
 variable "admin_group" {
-  description = "Group whose members belong to every app group and to var.superuser_group."
+  description = "Group whose members belong to every app group and to var.superuser_group; created here."
   type        = string
-  default     = "full-admin"
 }
 
 variable "admin_users" {
