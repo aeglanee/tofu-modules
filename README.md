@@ -10,6 +10,7 @@ cluster's inputs.
 | [authentik-sso](modules/authentik-sso/) | Every SSO client in Authentik (OIDC and proxy), their groups and login gates, and the client secrets in OpenBao |
 | [garage](modules/garage/) | Harbor's bucket and S3 key on Garage, and the key in OpenBao |
 | [harbor](modules/harbor/) | Harbor's proxy caches: a registry endpoint and a public `<key>-proxy` project per upstream registry, and the `helm-charts` push target |
+| [openbao-ci](modules/openbao-ci/) | OpenBao's login for Gitea Actions jobs (OIDC ID tokens at `auth/gitea-jwt`) and a role and policy per job type |
 
 ## Using a module
 
