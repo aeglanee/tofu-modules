@@ -1,8 +1,8 @@
 # tofu-modules
 
-Reusable OpenTofu modules for the homelab clusters. Each cluster's root modules and inputs live in
-its instance repo (for irkalla: `homelab/terraform/`); this repo holds only what several roots can
-share.
+Reusable OpenTofu modules for the homelab clusters. The logic lives here; each cluster's instance
+repo keeps only thin roots: the backend, the provider configuration, one module call and the
+cluster's inputs.
 
 | Module | Does |
 |---|---|
@@ -10,7 +10,7 @@ share.
 
 ## Using a module
 
-Pin a tag, as for any versioned dependency:
+Pin a tag or a commit, as for any versioned dependency:
 
 ```hcl
 module "sso" {
@@ -22,7 +22,7 @@ module "sso" {
 
 ```sh
 nix develop -c pre-commit install    # once; hooks then run on every commit
-nix develop -c tofu -chdir=modules/authentik-sso test
+nix develop -c tofu -chdir=modules/<module> test
 ```
 
 `tofu test` mocks every provider, so it runs offline and checks what a module would ask for, not
