@@ -20,6 +20,8 @@ variable "clients" {
       groups        full group names allowed to log in; empty = any user
       display_name  shown in Authentik; defaults to the key
       email         send the email claim (oidc); off unless the app needs it
+      kv_path       where the client secret goes under var.kv_mount (oidc); defaults to
+                    <kv_prefix>/<client>/oidc
   EOT
   type = map(object({
     mode          = optional(string, "oidc")
@@ -29,6 +31,7 @@ variable "clients" {
     groups        = optional(list(string), [])
     display_name  = optional(string)
     email         = optional(bool, false)
+    kv_path       = optional(string)
   }))
 
   validation {
@@ -51,6 +54,11 @@ variable "clients" {
   validation {
     condition     = !anytrue([for c in var.clients : contains(c.groups, var.superuser_group) || contains(c.groups, var.admin_group)])
     error_message = "A client lists the superuser or admin group; give it an app group instead."
+  }
+  # Two records at one path would overwrite each other.
+  validation {
+    condition     = length(distinct([for k, c in var.clients : coalesce(c.kv_path, "${var.kv_prefix}/${k}/oidc") if c.mode == "oidc"])) == length([for c in var.clients : c if c.mode == "oidc"])
+    error_message = "Two clients' secrets would go to the same kv path."
   }
 }
 
@@ -77,9 +85,15 @@ variable "kv_mount" {
 }
 
 variable "kv_prefix" {
-  description = "Each oidc client's secret goes to <kv_prefix>/<client>/oidc, as {clientId, clientSecret, issuer}."
+  description = "Each oidc client's secret goes to <kv_prefix>/<client>/oidc unless its kv_path says otherwise, as {clientId, clientSecret, issuer}."
   type        = string
   default     = "apps"
+}
+
+variable "groups_claim" {
+  description = "Name of the claim, in the groups scope, that lists the user's groups; the apps map it to their roles."
+  type        = string
+  default     = "groups"
 }
 
 variable "secret_version" {

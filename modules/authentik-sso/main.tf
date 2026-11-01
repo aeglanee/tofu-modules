@@ -2,6 +2,8 @@ locals {
   oidc  = { for k, c in var.clients : k => c if c.mode == "oidc" }
   proxy = { for k, c in var.clients : k => c if c.mode == "proxy" }
   urls  = { for k, c in var.clients : k => "https://${coalesce(c.host, k)}.${var.domain}" }
+  # Where each oidc client's secret goes under var.kv_mount.
+  kv_paths = { for k, c in local.oidc : k => coalesce(c.kv_path, "${var.kv_prefix}/${k}/oidc") }
 
   app_groups = toset(flatten([for c in var.clients : c.groups]))
   # One login gate per client and group; the order is the group's place in the client's list.
@@ -37,14 +39,14 @@ data "authentik_property_mapping_provider_scope" "email" {
   managed = "goauthentik.io/providers/oauth2/scope-email"
 }
 
-# A `groups` claim, which apps map to their own roles. all_groups() includes the groups a group
-# inherits from, which var.admin_group relies on.
+# The groups claim (var.groups_claim), which apps map to their own roles. all_groups() includes the
+# groups a group inherits from, which var.admin_group relies on.
 resource "authentik_property_mapping_provider_scope" "groups" {
   name       = "SSO groups claim"
   scope_name = "groups"
   expression = <<-EOT
     return {
-        "groups": [group.name for group in request.user.all_groups()]
+        ${jsonencode(var.groups_claim)}: [group.name for group in request.user.all_groups()]
     }
   EOT
 }
@@ -123,7 +125,7 @@ resource "vault_kv_secret_v2" "oidc" {
   for_each = local.oidc
 
   mount = var.kv_mount
-  name  = "${var.kv_prefix}/${each.key}/oidc"
+  name  = local.kv_paths[each.key]
   data_json_wo = jsonencode({
     clientId     = each.key
     clientSecret = random_password.oidc[each.key].result

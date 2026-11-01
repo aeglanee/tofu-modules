@@ -86,6 +86,10 @@ run "clients" {
     error_message = "a secret per oidc client at apps/<client>/oidc, none for proxies"
   }
   assert {
+    condition     = authentik_property_mapping_provider_scope.groups.scope_name == "groups" && authentik_property_mapping_provider_scope.groups.expression == "return {\n    \"groups\": [group.name for group in request.user.all_groups()]\n}\n"
+    error_message = "the groups scope sends the user's groups, inherited ones too, in the claim groups"
+  }
+  assert {
     condition     = length(output.proxy_provider_ids) == 1
     error_message = "one provider id per proxy client, for the embedded outpost"
   }
@@ -139,6 +143,36 @@ run "client_cant_list_the_admin_group" {
   command = plan
   variables {
     clients = { x = { redirect_path = "/", groups = ["full-admin"] } }
+  }
+  expect_failures = [var.clients]
+}
+
+run "other_kv_path_and_groups_claim" {
+  command = plan
+  variables {
+    groups_claim = "roles"
+    clients = {
+      grafana  = { redirect_path = "/", kv_path = "apps/grafana/sso" }
+      headlamp = { redirect_path = "/" }
+    }
+  }
+  assert {
+    condition     = vault_kv_secret_v2.oidc["grafana"].name == "apps/grafana/sso" && vault_kv_secret_v2.oidc["headlamp"].name == "apps/headlamp/oidc"
+    error_message = "a client's secret goes to its kv_path, else to <kv_prefix>/<client>/oidc"
+  }
+  assert {
+    condition     = strcontains(authentik_property_mapping_provider_scope.groups.expression, "\"roles\": [group.name") && authentik_property_mapping_provider_scope.groups.scope_name == "groups"
+    error_message = "the groups scope's claim follows groups_claim"
+  }
+}
+
+run "kv_paths_are_distinct" {
+  command = plan
+  variables {
+    clients = {
+      a = { redirect_path = "/", kv_path = "apps/b/oidc" }
+      b = { redirect_path = "/" }
+    }
   }
   expect_failures = [var.clients]
 }
