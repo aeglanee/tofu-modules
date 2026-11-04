@@ -29,7 +29,7 @@ repos:
         args: [-config-file, .gitea/actionlint.yaml]
 
   - repo: https://github.com/renovatebot/pre-commit-hooks
-    rev: 22d58e99e89d96e388f72214cb25a340c3e94cf4  # frozen: 44.211.0
+    rev: ced5f68693a30caaae1ef6228e1f26d7eaab43f4  # frozen: 44.216.0
     hooks:
       - id: renovate-config-validator
         args: [--strict]
