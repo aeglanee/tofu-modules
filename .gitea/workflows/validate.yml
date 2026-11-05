@@ -57,7 +57,7 @@ jobs:
   tofu:
     runs-on: k8s
     container:
-      image: ghcr.io/opentofu/opentofu:1.13.8
+      image: ghcr.io/opentofu/opentofu:1.13.9
     defaults:
       run:
         shell: sh
