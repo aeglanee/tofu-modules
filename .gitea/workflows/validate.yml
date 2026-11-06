@@ -45,7 +45,7 @@ jobs:
   renovate-config:
     runs-on: k8s
     container:
-      image: ghcr.io/renovatebot/renovate:44.221.4
+      image: ghcr.io/renovatebot/renovate:44.221.6
     steps:
       - name: checkout
         run: |
