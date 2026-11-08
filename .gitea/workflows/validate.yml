@@ -83,7 +83,7 @@ jobs:
   tflint:
     runs-on: k8s
     container:
-      image: ghcr.io/terraform-linters/tflint:v0.65.0
+      image: ghcr.io/terraform-linters/tflint:v0.66.0
     defaults:
       run:
         shell: sh
